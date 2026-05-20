@@ -1,6 +1,6 @@
 # MiniTransformer
 
-## 1. Project Overview -- Decoder-Only Transformer: Architecture Reimplementation and Empirical Analysis
+## 1. Project Overview 
 
 This project implements a decoder-only Transformer language model in PyTorch from first principles and investigates the effects of architectural and optimization hyperparameters on training dynamics and representational behavior.
 
