@@ -99,7 +99,6 @@ def build_parser(default_model: str = "v1") -> argparse.ArgumentParser:
     parser.add_argument("--model", "--variant", dest="model", default=default_model, choices=("v1", "v2", "v3"), help="model to train")
     parser.add_argument("--source", default=None, help="text file path or 'tinystories'")
     parser.add_argument("--limit", type=int, default=1000, help="number of TinyStories rows to use")
-    parser.add_argument("--model-path", default="/model/model.pt", help="checkpoint path")
     parser.add_argument("--steps", type=int, default=5000, help="training steps")
     parser.add_argument("--log-interval", type=int, default=1000, help="log interval for printing loss")
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
@@ -109,12 +108,13 @@ def build_parser(default_model: str = "v1") -> argparse.ArgumentParser:
     parser.add_argument("--head-size", type=int, default=None, help="attention head size for v2/v3")
     parser.add_argument("--num-layers", type=int, default=4, help="number of transformer blocks for v3")
     parser.add_argument("--learning-rate", type=float, default=1e-3, help="optimizer learning rate")
-    parser.add_argument("--generate-tokens", type=int, default=200, help="tokens to sample after training")
+    parser.add_argument("--tokens", type=int, default=200, help="tokens to sample after training")
     parser.add_argument("--start-text", default="Once upon a time", help="prompt used for sampling")
     parser.add_argument("--device", default=None, help="override device, for example cpu or cuda")
     parser.add_argument("--seed", type=int, default=1337, help="random seed")
     parser.add_argument("--loss-curve-dir", default=None, help="folder for saving a loss curve image after training")
     parser.add_argument("--load-model", action="store_true", help="load from model path or train a new model")
+    parser.add_argument("--model-path", default="model/model.pt", help="checkpoint path")
     parser.add_argument("--eval", action="store_true", help="eval model")
     parser.add_argument("--train", action="store_true", help="train model")
     return parser
@@ -192,5 +192,5 @@ def main(default_model: str = "v1") -> None:
 
         fallback_char = chars[0]
         start_tokens = encode(args.start_text, stoi, fallback_char=fallback_char).unsqueeze(0).to(device)
-        generated = model.generate(start_tokens, max_new_tokens=args.generate_tokens)
+        generated = model.generate(start_tokens, max_new_tokens=args.tokens)
         print(decode(generated[0].cpu(), itos))

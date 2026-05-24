@@ -92,12 +92,10 @@ def get_dataloader(
     drop_last: bool = True,
     prefetch_factor: Optional[int] = None,
 ) -> DataLoader:
-    """Create a DataLoader that yields batches already moved to `device`.
+    """Create a DataLoader that yields CPU batches ready to be moved to `device`.
 
     - Use `num_workers>0` for parallel loading.
-    - Set `pin_memory=True` for faster host->GPU transfers.
-    - If `device` is provided and is CUDA, tensors are moved with
-      `non_blocking=True` to enable asynchronous transfers.
+    - Set `pin_memory=True` for faster host->GPU transfers when training on CUDA.
     """
 
     if device is None:
@@ -108,13 +106,6 @@ def get_dataloader(
     def collate_fn(batch: List[Tuple[torch.Tensor, torch.Tensor]]):
         xs = torch.stack([b[0] for b in batch])
         ys = torch.stack([b[1] for b in batch])
-        # Move to device if requested. Use non_blocking for CUDA with pinned memory.
-        if device.type == "cuda":
-            xs = xs.pin_memory().to(device, non_blocking=True)
-            ys = ys.pin_memory().to(device, non_blocking=True)
-        else:
-            xs = xs.to(device)
-            ys = ys.to(device)
         return xs, ys
 
     loader_kwargs = dict(
