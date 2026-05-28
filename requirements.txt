@@ -2,3 +2,7 @@ torch
 matplotlib
 datasets
 httpx[socks]
+
+tensorboard
+torch_tb_profiler
+tensorboard-plugin-profile

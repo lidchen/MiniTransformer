@@ -23,6 +23,8 @@ class BaseCausalLM(nn.Module):
 
 
 class SingleHeadTransformer(BaseCausalLM):
+    tril: torch.Tensor
+
     def __init__(self, vocab_size: int, block_size: int, embed_dim: int):
         super().__init__()
         self.block_size = block_size
@@ -31,6 +33,7 @@ class SingleHeadTransformer(BaseCausalLM):
 
         self.token_embedding = nn.Embedding(vocab_size, embed_dim)
         self.position_embedding = nn.Embedding(block_size, embed_dim)
+        self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         self.query = nn.Linear(embed_dim, self.head_size, bias=False)
         self.key = nn.Linear(embed_dim, self.head_size, bias=False)
         self.value = nn.Linear(embed_dim, self.head_size, bias=False)
@@ -52,7 +55,7 @@ class SingleHeadTransformer(BaseCausalLM):
         v = self.value(x)
 
         attention = (q @ k.transpose(-2, -1)) * (self.head_size ** -0.5)
-        mask = torch.tril(torch.ones(seq_len, seq_len, device=idx.device))
+        mask = self.tril[:seq_len, :seq_len].to(idx.device)
         attention = attention.masked_fill(mask == 0, float("-inf"))
         attention = F.softmax(attention, dim=-1)
 
@@ -67,6 +70,7 @@ class SingleHeadTransformer(BaseCausalLM):
 
 
 class TransformerBlock(nn.Module):
+    tril: torch.Tensor
     def __init__(self, embed_dim: int, head_num: int, head_size: int, block_size: int):
         super().__init__()
         if head_num * head_size != embed_dim:
@@ -91,17 +95,20 @@ class TransformerBlock(nn.Module):
         batch_size, seq_len, _ = x.shape
         x_norm = self.ln1(x)
 
-        q = self.query(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
-        k = self.key(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
-        v = self.value(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
+        with torch.profiler.record_function("Attention"):
+            q = self.query(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
+            k = self.key(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
+            v = self.value(x_norm).view(batch_size, seq_len, self.head_num, self.head_size).transpose(1, 2)
 
-        attention = (q @ k.transpose(-2, -1)) * (self.head_size ** -0.5)
-        attention = attention.masked_fill(self.tril[:seq_len, :seq_len] == 0, float("-inf"))
-        attention = F.softmax(attention, dim=-1)
+            attention = (q @ k.transpose(-2, -1)) * (self.head_size ** -0.5)
+            attention = attention.masked_fill(self.tril[:seq_len, :seq_len] == 0, float("-inf"))
+            attention = F.softmax(attention, dim=-1)
 
-        out = (attention @ v).transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
-        x = x + self.proj(out)
-        x = x + self.ffn(self.ln2(x))
+            out = (attention @ v).transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
+            x = x + self.proj(out)
+
+        with torch.profiler.record_function("FFN"):
+            x = x + self.ffn(self.ln2(x))
         return x
 
 

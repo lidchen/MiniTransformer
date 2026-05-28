@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 
 from .data import get_batch, get_dataloader
 
-
 def train_model(
     model: torch.nn.Module,
     data: Optional[torch.Tensor] = None,

@@ -9,6 +9,8 @@ from pathlib import Path
 from matplotlib import pyplot
 from matplotlib.ticker import ScalarFormatter
 
+from minitransformer.profiling import profile_model
+
 from .data import build_dataset, decode, encode, get_device, load_text, seed_everything
 from .models import build_model
 from .training import load_model, save_model, train_model
@@ -117,6 +119,7 @@ def build_parser(default_model: str = "v1") -> argparse.ArgumentParser:
     parser.add_argument("--model-path", default="model/model.pt", help="checkpoint path")
     parser.add_argument("--eval", action="store_true", help="eval model")
     parser.add_argument("--train", action="store_true", help="train model")
+    parser.add_argument("--profile", action="store_true", help="profiling model")
     return parser
 
 
@@ -130,7 +133,7 @@ def main(default_model: str = "v1") -> None:
     dataset = None
     chars = None
 
-    if args.train:
+    if args.train or args.profile:
         text = load_text(args.source, limit=args.limit)
         dataset = build_dataset(text)
         chars = dataset.chars
@@ -194,3 +197,13 @@ def main(default_model: str = "v1") -> None:
         start_tokens = encode(args.start_text, stoi, fallback_char=fallback_char).unsqueeze(0).to(device)
         generated = model.generate(start_tokens, max_new_tokens=args.tokens)
         print(decode(generated[0].cpu(), itos))
+
+    if args.profile:
+        profile_model(
+            model = model,
+            data = dataset.data,
+            # batch_size = args.batch_size,
+            # block_size = args.block_size,
+            steps = 10,
+            device = device,
+        )
